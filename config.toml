@@ -1,0 +1,14 @@
+hostname = "localhost"
+port = 443
+cert_file = "./test/server.rsa.crt"
+key_file = "./test/server.rsa.key"
+
+[[server.web]]
+name = "web1"
+hostname = "localhost"
+port = 8081
+
+[[server.web]]
+name = "web2"
+hostname = "localhost"
+port = 8082
