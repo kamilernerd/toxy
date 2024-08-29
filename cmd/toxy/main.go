@@ -2,14 +2,16 @@ package main
 
 import "github.com/kamilernerd/toxy"
 
-var Config = toxy.LoadConfig()
-
 func main() {
+	config := toxy.LoadConfig()
+	resolver := toxy.ServiceResolver(config)
+
+	go resolver.Resolve()
+
 	server := toxy.Server{
-		Port:     Config.Port,
-		Hostname: Config.Hostname,
-		CertPath: Config.CertPath,
-		KeyPath:  Config.KeyPath,
+		Config:   config,
+		Services: resolver.Services,
 	}
+
 	server.TcpListener()
 }

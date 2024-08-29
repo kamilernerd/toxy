@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  web1:
+    image: nginx:1-alpine
+    ports:
+      - 8081:80
+    volumes:
+      - ./html5up-stellar/:/usr/share/nginx/html
+
+  web2:
+    image: nginx:1-alpine
+    ports:
+      - 8082:80
+    volumes:
+      - ./html5up-stellar/:/usr/share/nginx/html
+  
+  web3:
+    image: nginx:1-alpine
+    ports:
+      - 8083:80
+    volumes:
+      - ./html5up-stellar/:/usr/share/nginx/html

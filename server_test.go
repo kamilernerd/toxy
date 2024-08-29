@@ -1,7 +1,7 @@
 package toxy_test
 
 import (
-	"bufio"
+	// "bufio"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -67,10 +67,6 @@ func TestTcpListener(t *testing.T) {
 				t.Fatal(err)
 				conn.Close()
 			}
-
-			go func() {
-				conn.Close()
-			}()
 		}
 	}()
 
@@ -81,7 +77,7 @@ func TestTcpListener(t *testing.T) {
 	}
 }
 
-func TestTcpListenerConnectionHanlder(t *testing.T) {
+func TestTcpListenerConnectionHandler(t *testing.T) {
 	content, err := os.ReadFile("./config.toml")
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +95,7 @@ func TestTcpListenerConnectionHanlder(t *testing.T) {
 		t.Fatalf("Failed to load keypair %v", err)
 	}
 
-	ln, err := tls.Listen("tcp", fmt.Sprintf(":%d", defaultConfStruct.Port), &tls.Config{Certificates: []tls.Certificate{cert}})
+	ln, err := tls.Listen("tcp", fmt.Sprintf(":%d", defaultConfStruct.Port+1), &tls.Config{Certificates: []tls.Certificate{cert}})
 
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +107,7 @@ func TestTcpListenerConnectionHanlder(t *testing.T) {
 			defer conn.Close()
 
 			if err != nil {
-				t.Fatal(err)
+				log.Println(err)
 				break
 			}
 			go HandleTcpListenerHelper(conn)
@@ -123,19 +119,23 @@ func TestTcpListenerConnectionHanlder(t *testing.T) {
 
 func HandleTcpListenerHelper(conn net.Conn) {
 	defer conn.Close()
-	r := bufio.NewReader(conn)
+
+	var buf [4096]byte
 
 	for {
-		_, err := r.ReadString('\n')
+		n, err := conn.Read(buf[0:])
 		if err != nil {
-			if !errors.Is(err, io.EOF) {
-				log.Fatal(err)
+			if errors.Is(err, io.EOF) {
+				log.Printf("EOF reading tcp data %v", err)
+				break
 			}
+			log.Printf("%v", err)
+			break
 		}
 
-		n, err := conn.Write([]byte("world\n"))
-		if err != nil {
-			log.Fatal(n, err)
+		if n == 0 {
+			log.Fatal("Could not receive any bytes")
+			return
 		}
 	}
 }
@@ -156,13 +156,26 @@ func DialTestHelper(t *testing.T) {
 		InsecureSkipVerify: true,
 	}
 
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", defaultConfStruct.Hostname, defaultConfStruct.Port), conf)
+	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", defaultConfStruct.Hostname, defaultConfStruct.Port+1), conf)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer conn.Close()
 
-	n, err := conn.Write([]byte("hello\n"))
+	testData := `
+GET / HTTP/1.1
+Host: localhost:8081
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Sec-GPC: 1
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Cache-Control: no-cache
+	`
+
+	n, err := conn.Write([]byte(testData))
 	if err != nil {
 		t.Fatal(n, err)
 	}

@@ -1,34 +1,37 @@
 package toxy
 
 import (
-	"bufio"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net"
 )
 
 type Server struct {
-	Hostname string
-	Port     int
-	CertPath string
-	KeyPath  string
+	Config   Config
+	Services []ResolverService
 }
 
+/*
+Load x509 keypair
+*/
 func (s *Server) LoadCertificates() *tls.Config {
-	cert, err := tls.LoadX509KeyPair(s.CertPath, s.KeyPath)
+	cert, err := tls.LoadX509KeyPair(s.Config.CertPath, s.Config.KeyPath)
 	if err != nil {
 		log.Fatalf("Failed to load keypair %v", err)
 	}
-	return &tls.Config{Certificates: []tls.Certificate{cert}}
+	return &tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: false}
 }
 
+/*
+Listen for TCP connections
+*/
 func (s *Server) TcpListener() {
 	tlsConfig := s.LoadCertificates()
-	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", s.Hostname, s.Port), tlsConfig)
+	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", s.Config.Hostname, s.Config.Port), tlsConfig)
 	defer ln.Close()
 
 	if err != nil {
@@ -40,39 +43,87 @@ func (s *Server) TcpListener() {
 		defer conn.Close()
 
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Error during accepting a remote connection %v\n", err)
 			continue
-		}
-
-		tlscon, ok := conn.(*tls.Conn)
-		if ok {
-			state := tlscon.ConnectionState()
-			for _, v := range state.PeerCertificates {
-				log.Print(x509.MarshalPKIXPublicKey(v.PublicKey))
-			}
 		}
 		go s.connectionHandler(conn)
 	}
 }
 
+/*
+Pipe tcp server to remote connection
+
+Buffers host data and forwards to remote server
+Buffers remote data and forwards to host server
+*/
 func (s *Server) connectionHandler(conn net.Conn) {
 	defer conn.Close()
-	r := bufio.NewReader(conn)
+
+	selectedService := s.Services[0]
+	switch s.Config.LoadBalancer {
+	case "random":
+		index := rand.Intn(len(s.Services)-0) + 0
+		selectedService = s.Services[index]
+		break
+	case "roundrobin":
+		break
+	default:
+		selectedService = s.Services[0]
+	}
+
+	proxy := NewProxy(selectedService)
+	proxy.connect()
+	go proxy.read()
+
+	serverOutBuf := s.read(conn)
 
 	for {
-		_, err := r.ReadString('\n')
-		if err != nil {
-			if !errors.Is(err, io.EOF) {
-				log.Fatal(err)
+		select {
+		case proxyBuf := <-proxy.OutBuf:
+			if proxyBuf != nil {
+				s.write(conn, proxyBuf)
+			}
+		case hostBuf := <-serverOutBuf:
+			if hostBuf != nil {
+				proxy.write(hostBuf)
 			}
 		}
-
-		// TODO - Loadbalance servers
-		// TODO - Connect, write and read response then return to the proxy
-
-		n, err := conn.Write([]byte("world\n"))
-		if err != nil {
-			log.Fatal(n, err)
-		}
 	}
+}
+
+func (s *Server) write(conn net.Conn, buf []byte) {
+	n, err := conn.Write(buf)
+	if err != nil {
+		log.Println(n, err)
+		conn.Close()
+		return
+	}
+}
+
+func (s *Server) read(conn net.Conn) chan []byte {
+	outBuf := make(chan []byte)
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			if conn == nil {
+				log.Printf("Host connection is nil")
+				return
+			}
+			n, err := conn.Read(buf)
+			r := make([]byte, n)
+			copy(r, buf[:n])
+			outBuf <- r
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					outBuf <- nil
+					conn.Close()
+					return
+				}
+				log.Printf("%v", err)
+				conn.Close()
+				return
+			}
+		}
+	}()
+	return outBuf
 }

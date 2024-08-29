@@ -2,13 +2,19 @@ hostname = "localhost"
 port = 44380
 cert_file = "./test/server.rsa.crt"
 key_file = "./test/server.rsa.key"
+load_balancer = "random"
 
 [[server.web]]
 name = "web1"
-hostname = "localhost"
-port = 8081
+hostname = "142.250.74.142"
+port = 80
 
 [[server.web]]
 name = "web2"
 hostname = "localhost"
 port = 8082
+
+[[server.web]]
+name = "web3"
+hostname = "localhost"
+port = 8083
