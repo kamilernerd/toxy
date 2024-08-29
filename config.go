@@ -25,12 +25,13 @@ type ServerConfig struct {
 }
 
 type Config struct {
-	Port         int    `toml:"port"`
-	Hostname     string `toml:"hostname"`
-	CertPath     string `toml:"cert_file"`
-	KeyPath      string `toml:"key_file"`
-	LoadBalancer string `toml:"load_balancer"`
-	Server       map[string][]ServerConfig
+	Port            int    `toml:"port"`
+	Hostname        string `toml:"hostname"`
+	CertPath        string `toml:"cert_file"`
+	KeyPath         string `toml:"key_file"`
+	LoadBalancer    string `toml:"load_balancer"`
+	ResolveInterval int    `toml:"resolve_interval"`
+	Server          map[string][]ServerConfig
 }
 
 func LoadConfig() Config {

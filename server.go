@@ -55,7 +55,6 @@ func (s *Server) TcpListener() {
 
 /*
 Pipe tcp server to remote connection
-
 Buffers host data and forwards to remote server
 Buffers remote data and forwards to host server
 */
@@ -63,6 +62,11 @@ func (s *Server) connectionHandler(conn net.Conn) {
 	defer conn.Close()
 
 	selectedService := s.Balancer.selectService()
+
+	if selectedService == nil {
+		log.Println("All services seem to be offline")
+		return
+	}
 
 	proxy := NewProxy(selectedService)
 	proxy.connect()

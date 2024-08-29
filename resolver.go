@@ -19,12 +19,14 @@ type Resolver struct {
 	Services []*ResolverService
 	Quit     chan int
 	sync     sync.Mutex
+	interval int
 }
 
 func ServiceResolver(config Config) *Resolver {
 	r := &Resolver{
 		Services: []*ResolverService{},
 		Quit:     make(chan int, 1),
+		interval: config.ResolveInterval,
 	}
 
 	for _, serv := range config.Server {
@@ -41,25 +43,34 @@ func ServiceResolver(config Config) *Resolver {
 }
 
 func (r *Resolver) Resolve() {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(time.Duration(r.interval) * time.Second)
+
+	for _, v := range r.Services {
+		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", v.Hostname, v.Port))
+		if err != nil {
+			log.Printf("Error dialing service %s -> %v", v.Name, err)
+			v.State = ServiceDown
+			continue
+		}
+		v.State = ServiceUp
+		conn.Close()
+	}
 
 	for {
 		select {
 		case <-ticker.C:
+			r.sync.Lock()
 			for _, v := range r.Services {
-				r.sync.Lock()
-				// fmt.Printf("Resolving service %s\n", v.Name)
 				conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", v.Hostname, v.Port))
 				if err != nil {
 					log.Printf("Error dialing service %s -> %v", v.Name, err)
 					v.State = ServiceDown
-					r.sync.Unlock()
 					continue
 				}
 				v.State = ServiceUp
 				conn.Close()
-				r.sync.Unlock()
 			}
+			r.sync.Unlock()
 		case <-r.Quit:
 			ticker.Stop()
 			r.sync.Unlock()
