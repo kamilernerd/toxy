@@ -7,6 +7,17 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+const (
+	Random     string = "random"
+	Sequential        = "sequential"
+)
+
+const (
+	ServiceUp      string = "up"
+	ServiceDown    string = "down"
+	ServiceUnknown string = "unknown"
+)
+
 type ServerConfig struct {
 	Port     int    `toml:"port"`
 	Hostname string `toml:"hostname"`

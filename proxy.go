@@ -9,12 +9,12 @@ import (
 )
 
 type Proxy struct {
-	service ResolverService
+	service *ResolverService
 	conn    net.Conn
 	OutBuf  chan []byte
 }
 
-func NewProxy(service ResolverService) *Proxy {
+func NewProxy(service *ResolverService) *Proxy {
 	proxy := &Proxy{
 		service: service,
 		OutBuf:  make(chan []byte),
@@ -24,14 +24,11 @@ func NewProxy(service ResolverService) *Proxy {
 
 func (p *Proxy) connect() {
 	var err error
-
-	// if p.service.State == "up" {
 	p.conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", p.service.Hostname, p.service.Port))
 	if err != nil {
 		p.OutBuf <- nil
 		return
 	}
-	// }
 }
 
 func (p *Proxy) write(buf []byte) {

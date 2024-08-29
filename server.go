@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 )
 
 type Server struct {
 	Config   Config
-	Services []ResolverService
+	Balancer *Balancer
 }
 
 /*
@@ -38,6 +37,10 @@ func (s *Server) TcpListener() {
 		log.Fatal(err)
 	}
 
+	if s.Config.LoadBalancer == Sequential {
+		s.Balancer.initSequential()
+	}
+
 	for {
 		conn, err := ln.Accept()
 		defer conn.Close()
@@ -59,20 +62,12 @@ Buffers remote data and forwards to host server
 func (s *Server) connectionHandler(conn net.Conn) {
 	defer conn.Close()
 
-	selectedService := s.Services[0]
-	switch s.Config.LoadBalancer {
-	case "random":
-		index := rand.Intn(len(s.Services)-0) + 0
-		selectedService = s.Services[index]
-		break
-	case "roundrobin":
-		break
-	default:
-		selectedService = s.Services[0]
-	}
+	selectedService := s.Balancer.selectService()
+	s.Balancer.getCurrentState()
 
 	proxy := NewProxy(selectedService)
 	proxy.connect()
+	defer proxy.Close()
 	go proxy.read()
 
 	serverOutBuf := s.read(conn)
@@ -92,6 +87,10 @@ func (s *Server) connectionHandler(conn net.Conn) {
 }
 
 func (s *Server) write(conn net.Conn, buf []byte) {
+	if conn == nil {
+		return
+	}
+
 	n, err := conn.Write(buf)
 	if err != nil {
 		log.Println(n, err)

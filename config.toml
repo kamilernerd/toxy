@@ -2,7 +2,7 @@ hostname = "localhost"
 port = 44380
 cert_file = "./test/server.rsa.crt"
 key_file = "./test/server.rsa.key"
-load_balancer = "random"
+load_balancer = "sequential"
 
 [[server.web]]
 name = "web1"

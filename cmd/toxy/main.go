@@ -8,9 +8,11 @@ func main() {
 
 	go resolver.Resolve()
 
+	serviceLoadBalancer := toxy.NewBalancer(resolver.Services, config.LoadBalancer)
+
 	server := toxy.Server{
 		Config:   config,
-		Services: resolver.Services,
+		Balancer: serviceLoadBalancer,
 	}
 
 	server.TcpListener()
