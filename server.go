@@ -63,7 +63,6 @@ func (s *Server) connectionHandler(conn net.Conn) {
 	defer conn.Close()
 
 	selectedService := s.Balancer.selectService()
-	s.Balancer.getCurrentState()
 
 	proxy := NewProxy(selectedService)
 	proxy.connect()

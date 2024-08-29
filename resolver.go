@@ -48,7 +48,7 @@ func (r *Resolver) Resolve() {
 		case <-ticker.C:
 			for _, v := range r.Services {
 				r.sync.Lock()
-				fmt.Printf("Resolving service %s\n", v.Name)
+				// fmt.Printf("Resolving service %s\n", v.Name)
 				conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", v.Hostname, v.Port))
 				if err != nil {
 					log.Printf("Error dialing service %s -> %v", v.Name, err)
